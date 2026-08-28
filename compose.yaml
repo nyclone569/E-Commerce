@@ -1,0 +1,71 @@
+name: aurora-shop
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aurora}
+      POSTGRES_USER: ${POSTGRES_USER:-aurora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aurora}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    image: aurora-shop-backend:${APP_VERSION:-dev}
+    build:
+      context: ./backend
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_VERSION: ${APP_VERSION:-dev}
+      HTTP_ADDRESS: ":8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-aurora}:${POSTGRES_PASSWORD:-aurora}@postgres:5432/${POSTGRES_DB:-aurora}?sslmode=disable
+      DATABASE_MAX_OPEN_CONNS: ${DATABASE_MAX_OPEN_CONNS:-10}
+      DATABASE_MIN_IDLE_CONNS: ${DATABASE_MIN_IDLE_CONNS:-2}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+      SESSION_TTL: ${SESSION_TTL:-24h}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/api/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    image: aurora-shop-frontend:${APP_VERSION:-dev}
+    build:
+      context: ./frontend
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
+    environment:
+      BACKEND_URL: http://backend:8080
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
