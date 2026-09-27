@@ -17,6 +17,46 @@ Browser
 
 The `catalog` and `identity` packages have behavior. The empty `cart`, `inventory`, `order`, and `payment` packages mark planned ownership; empty packages are not services and are not deployed independently.
 
+## Functional map
+
+AuroraShop uses a functional map to show business capabilities without deciding deployment topology prematurely. A box in this map is a capability or possible domain module, not automatically a microservice, database, Kafka topic, or team boundary.
+
+```text
+AuroraShop
+├── Core commerce — current roadmap
+│   ├── Identity
+│   ├── Catalog
+│   ├── Cart
+│   ├── Inventory
+│   ├── Order
+│   └── Payment
+│
+├── Customer experience — post-roadmap expansion
+│   ├── Favourites
+│   ├── Ratings and reviews
+│   ├── Product search
+│   └── Product media
+│
+├── Commerce operations — post-roadmap expansion
+│   ├── Promotions
+│   ├── Tax
+│   ├── Shipping and fulfilment
+│   ├── Returns and refunds
+│   └── Notifications
+│
+└── Merchant operations — post-roadmap expansion
+    ├── Product administration
+    ├── Order administration
+    ├── Inventory adjustments
+    └── Audit history
+```
+
+Only **Core commerce** is in the current Milestone 1–8 roadmap. The other branches are an expansion backlog and must not delay checkout correctness, observability, deployment learning, or the evidence-based extraction experiment. Their order is intentionally undecided.
+
+When the current roadmap is complete, select one expansion capability by starting from a user journey and a measurable learning objective. Before implementation, write a new Decision Review covering its requirements, ownership, transaction boundary, security and privacy risks, expected load, failure behavior, and whether an existing module should own it. The default remains to add the capability as a module in the Go monolith and the existing PostgreSQL database. A separate deployable, datastore, cache, search engine, object store, or event flow requires its own evidence and ADR.
+
+Examples of justified future infrastructure include object storage when Product media needs binary assets, a search engine when measured PostgreSQL search quality or latency is inadequate, and asynchronous delivery when Notifications must tolerate slow external providers. These examples are revisit conditions, not predetermined technology choices.
+
 ## Milestone 2 Identity flow
 
 The browser uses one public origin. During local development, a Next.js route handler proxies `/api/*` to the internal Go URL. In Kubernetes, ingress will route `/api/*` directly to Go and other paths to Next.js.
