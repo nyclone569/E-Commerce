@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aurora-shop/aurora-shop/backend/internal/cart"
 	"github.com/aurora-shop/aurora-shop/backend/internal/catalog"
 	"github.com/aurora-shop/aurora-shop/backend/internal/identity"
 	"github.com/aurora-shop/aurora-shop/backend/internal/platform/config"
@@ -88,6 +89,9 @@ func routes(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) (http.Ha
 	catalogRepository := catalog.NewPostgresRepository(pool)
 	catalogService := catalog.NewService(catalogRepository)
 	catalogHandler := catalog.NewHandler(catalogService, logger)
+	cartRepository := cart.NewPostgresRepository(pool)
+	cartService := cart.NewService(cartRepository, catalogService)
+	cartHandler := cart.NewHandler(cartService, logger)
 
 	identityRepository := identity.NewPostgresRepository(pool)
 	identityService, err := identity.NewService(
@@ -118,7 +122,7 @@ func routes(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) (http.Ha
 			return
 		}
 		var schemaReady bool
-		if err := pool.QueryRow(ctx, "SELECT to_regclass('public.products') IS NOT NULL AND to_regclass('public.users') IS NOT NULL").Scan(&schemaReady); err != nil || !schemaReady {
+		if err := pool.QueryRow(ctx, "SELECT to_regclass('public.products') IS NOT NULL AND to_regclass('public.skus') IS NOT NULL AND to_regclass('public.users') IS NOT NULL AND to_regclass('public.carts') IS NOT NULL AND to_regclass('public.cart_items') IS NOT NULL").Scan(&schemaReady); err != nil || !schemaReady {
 			httpx.WriteError(w, http.StatusServiceUnavailable, "not_ready", "Database schema is not ready", nil)
 			return
 		}
@@ -131,5 +135,10 @@ func routes(pool *pgxpool.Pool, logger *slog.Logger, cfg config.Config) (http.Ha
 	router.With(httpx.RequireOrigin(cfg.PublicOrigin)).Post("/api/auth/login", identityHandler.Login)
 	router.With(httpx.RequireOrigin(cfg.PublicOrigin)).Post("/api/auth/logout", identityHandler.Logout)
 	router.With(identityHandler.Authenticate).Get("/api/me", identityHandler.Me)
+	router.With(identityHandler.Authenticate).Get("/api/auth/csrf", identityHandler.CSRFToken)
+	router.With(identityHandler.Authenticate).Get("/api/cart", cartHandler.Get)
+	router.With(identityHandler.Authenticate, httpx.RequireOrigin(cfg.PublicOrigin), identityHandler.RequireCSRF).Post("/api/cart/items", cartHandler.Add)
+	router.With(identityHandler.Authenticate, httpx.RequireOrigin(cfg.PublicOrigin), identityHandler.RequireCSRF).Put("/api/cart/items/{skuID}", cartHandler.SetQuantity)
+	router.With(identityHandler.Authenticate, httpx.RequireOrigin(cfg.PublicOrigin), identityHandler.RequireCSRF).Delete("/api/cart/items/{skuID}", cartHandler.Remove)
 	return router, nil
 }

@@ -47,7 +47,7 @@ export default async function Home({ searchParams }: HomeProps) {
                       <h2 className="mt-2 text-2xl font-black text-emerald-950">{product.name}</h2>
                       <p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-emerald-950/60">{product.description || "No description yet."}</p>
                       <p className="mt-5 text-lg font-bold text-emerald-800">
-                        {firstSKU ? formatMoney(firstSKU.price_cents, firstSKU.currency) : "Price unavailable"}
+                        {firstSKU ? formatMoney(firstSKU.price_minor, firstSKU.currency) : "Price unavailable"}
                       </p>
                     </div>
                   </article>

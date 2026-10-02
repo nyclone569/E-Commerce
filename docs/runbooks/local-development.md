@@ -31,6 +31,16 @@ curl --fail-with-body \
 
 Do not use `http://127.0.0.1:3000` when `PUBLIC_ORIGIN` is `http://localhost:3000`; origins are intentionally exact. In production, set `PUBLIC_ORIGIN=https://<shop-host>` and `SESSION_COOKIE_SECURE=true`.
 
+## Cart returns `401`, `403`, or `409`
+
+- `401 authentication_required`: sign in at the same origin before opening `/cart`. Go authenticates before any Cart query, so this response does not expose cart contents.
+- `403 origin_not_allowed`: the mutation Origin must equal `PUBLIC_ORIGIN` exactly.
+- `403 csrf_invalid`: obtain a fresh token from authenticated `GET /api/auth/csrf` and pass it as `X-CSRF-Token`. This token is bound to the current session and is not the session cookie.
+- `409 sku_unavailable`: the SKU is missing or not VND. Old USD demo rows remain readable in Catalog but cannot enter Cart.
+- `409 cart_limit`: no more than 99 units per SKU or 100 distinct SKUs.
+
+If the cart page fails after a schema change, check `make migrate-status`; Cart needs migration `00004`. The `price_cents` to `price_minor` rename in `00003` is an incompatible learning-repo cutover, so do not run an old API image against the new schema.
+
 ## Login succeeds but the header still shows “Sign in”
 
 Check the same-origin proxy and cookie path without copying the cookie value into logs:

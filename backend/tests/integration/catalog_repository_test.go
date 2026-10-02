@@ -12,6 +12,7 @@ import (
 
 	"github.com/aurora-shop/aurora-shop/backend/internal/catalog"
 	platformdatabase "github.com/aurora-shop/aurora-shop/backend/internal/platform/database"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -67,6 +68,12 @@ func TestCatalogRepositoryCreateAndList(t *testing.T) {
 	if detail.ID != first.ID || len(detail.SKUs) != 1 || detail.SKUs[0].Code != "MUG-WHITE" {
 		t.Fatalf("unexpected product detail: %#v", detail)
 	}
+	if detail.SKUs[0].Currency != "VND" || detail.SKUs[0].PriceMinor != 249000 {
+		t.Fatalf("unexpected VND price: %#v", detail.SKUs[0])
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO skus (id, product_id, code, price_minor, currency) VALUES ($1, $2, 'USD-INVALID', 1000, 'USD')`, uuid.New(), first.ID); err == nil {
+		t.Fatal("database accepted a new non-VND SKU")
+	}
 	_, err = service.GetProduct(ctx, "missing-product")
 	if err != catalog.ErrNotFound {
 		t.Fatalf("missing GetProduct() error = %v, want ErrNotFound", err)
@@ -74,7 +81,7 @@ func TestCatalogRepositoryCreateAndList(t *testing.T) {
 
 	_, err = service.CreateProduct(ctx, catalog.CreateProductInput{
 		Name: "Duplicate", Slug: "aurora-mug",
-		SKUs: []catalog.CreateSKUInput{{Code: "ANOTHER", PriceCents: 100, Currency: "USD"}},
+		SKUs: []catalog.CreateSKUInput{{Code: "ANOTHER", PriceMinor: 100000, Currency: "VND"}},
 	})
 	if err != catalog.ErrConflict {
 		t.Fatalf("duplicate CreateProduct() error = %v, want ErrConflict", err)
@@ -82,7 +89,7 @@ func TestCatalogRepositoryCreateAndList(t *testing.T) {
 
 	_, err = service.CreateProduct(ctx, catalog.CreateProductInput{
 		Name: "Rollback Candidate", Slug: "rollback-candidate",
-		SKUs: []catalog.CreateSKUInput{{Code: "MUG-WHITE", PriceCents: 100, Currency: "USD"}},
+		SKUs: []catalog.CreateSKUInput{{Code: "MUG-WHITE", PriceMinor: 100000, Currency: "VND"}},
 	})
 	if err != catalog.ErrConflict {
 		t.Fatalf("duplicate SKU CreateProduct() error = %v, want ErrConflict", err)
@@ -100,7 +107,7 @@ func createProduct(t *testing.T, ctx context.Context, service *catalog.Service, 
 	t.Helper()
 	product, err := service.CreateProduct(ctx, catalog.CreateProductInput{
 		Name: name, Slug: slug, Description: "Milestone 1 product",
-		SKUs: []catalog.CreateSKUInput{{Code: code, PriceCents: 2499, Currency: "USD"}},
+		SKUs: []catalog.CreateSKUInput{{Code: code, PriceMinor: 249000, Currency: "VND"}},
 	})
 	if err != nil {
 		t.Fatalf("CreateProduct() error = %v", err)

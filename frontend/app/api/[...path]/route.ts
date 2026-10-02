@@ -41,7 +41,7 @@ async function proxyRequest(request: NextRequest, context: RouteContext): Promis
       signal: request.signal,
     });
     const responseHeaders = new Headers();
-    for (const name of ["content-type", "set-cookie", "x-request-id"]) {
+    for (const name of ["content-type", "set-cookie", "x-request-id", "cache-control", "vary"]) {
       const value = upstream.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
@@ -64,5 +64,13 @@ export function GET(request: NextRequest, context: RouteContext) {
 }
 
 export function POST(request: NextRequest, context: RouteContext) {
+  return proxyRequest(request, context);
+}
+
+export function PUT(request: NextRequest, context: RouteContext) {
+  return proxyRequest(request, context);
+}
+
+export function DELETE(request: NextRequest, context: RouteContext) {
   return proxyRequest(request, context);
 }

@@ -22,6 +22,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               Aurora<span className="text-amber-600">Shop</span>
             </Link>
             <nav className="flex items-center gap-4" aria-label="Account navigation">
+              <Link href="/cart" className="text-sm font-bold text-emerald-800 hover:text-emerald-950">Cart</Link>
               {user ? (
                 <>
                   <span className="hidden text-sm text-emerald-950/65 sm:inline">Hello, <strong className="text-emerald-950">{user.display_name}</strong></span>
@@ -34,7 +35,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 </>
               )}
               <span className="hidden rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-amber-800 md:inline">
-                M2 / Identity
+                M2 / Cart
               </span>
             </nav>
           </div>

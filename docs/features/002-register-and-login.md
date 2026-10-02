@@ -46,7 +46,7 @@ Email verification, password reset, MFA, OAuth/OIDC, social login, roles, accoun
 | Token rotation | Every request; periodic; security boundaries | Register/login boundaries only | Avoid multi-tab races before a requirement exists | Stolen token survives until revoke/expiry | Elevated privilege, recovery, or replay evidence |
 | Frontend auth state | Browser storage; client global store; server-derived `/api/me` | Server-derived `/api/me` | Backend session remains the source of truth | Current layout becomes dynamic | Static caching becomes valuable |
 | Browser routing | Cross-origin API; Next proxy; edge path routing | Same-origin path, Next proxy locally | Avoid CORS complexity and match future ingress paths | Extra local hop | Proxy becomes a bottleneck or topology changes |
-| CSRF baseline | SameSite only; Origin; synchronizer token | SameSite + exact Origin now | Covers this narrow first slice explicitly | Not the complete checkout defense | First authenticated commerce mutation |
+| CSRF baseline | SameSite only; Origin; session-bound token | SameSite + exact Origin for Identity | Covers this narrow first slice explicitly | Cart adds a session-bound token | Authenticated commerce mutation |
 | User ID | Sequence; UUID v4; UUID v7 | UUID v4 | Existing project convention and non-PII public identifier | Larger, less index-local than sequence/v7 | Index measurements justify change |
 
 ## Request and data flow

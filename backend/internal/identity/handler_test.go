@@ -65,3 +65,25 @@ func TestLogoutIsIdempotentAndClearsCookie(t *testing.T) {
 		t.Fatalf("logout cookie = %#v", cookies)
 	}
 }
+
+func TestAuthenticateDoesNotReachCartHandlerWithoutValidSession(t *testing.T) {
+	repository := &stubRepository{activeErr: ErrUnauthenticated}
+	service := newTestService(t, repository, &stubHasher{})
+	handler := NewHandler(service, slog.New(slog.NewTextHandler(io.Discard, nil)), CookieConfig{Name: "aurora_session"})
+	called := false
+	protected := handler.Authenticate(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	for _, withCookie := range []bool{false, true} {
+		request := httptest.NewRequest(http.MethodGet, "/api/cart", nil)
+		if withCookie {
+			request.AddCookie(&http.Cookie{Name: "aurora_session", Value: "raw-token"})
+		}
+		response := httptest.NewRecorder()
+		protected.ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized || called {
+			t.Fatalf("withCookie=%v: status=%d handlerCalled=%v", withCookie, response.Code, called)
+		}
+	}
+}

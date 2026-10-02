@@ -20,7 +20,7 @@ type SKU struct {
 	ID         uuid.UUID `json:"id"`
 	ProductID  uuid.UUID `json:"product_id"`
 	Code       string    `json:"code"`
-	PriceCents int64     `json:"price_cents"`
+	PriceMinor int64     `json:"price_minor"`
 	Currency   string    `json:"currency"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
@@ -35,8 +35,18 @@ type CreateProductInput struct {
 
 type CreateSKUInput struct {
 	Code       string `json:"code"`
-	PriceCents int64  `json:"price_cents"`
+	PriceMinor int64  `json:"price_minor"`
 	Currency   string `json:"currency"`
+}
+
+type SKUDetails struct {
+	ID          uuid.UUID
+	ProductID   uuid.UUID
+	ProductName string
+	ProductSlug string
+	Code        string
+	PriceMinor  int64
+	Currency    string
 }
 
 type Page struct {

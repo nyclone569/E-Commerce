@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 type stubRepository struct {
@@ -29,13 +31,17 @@ func (r *stubRepository) GetBySlug(_ context.Context, slug string) (Product, err
 	return r.product, r.getErr
 }
 
+func (r *stubRepository) GetSKUs(_ context.Context, _ []uuid.UUID) ([]SKUDetails, error) {
+	return nil, nil
+}
+
 func TestCreateProductNormalizesAndDelegates(t *testing.T) {
 	repository := &stubRepository{}
 	service := NewService(repository)
 
 	product, err := service.CreateProduct(context.Background(), CreateProductInput{
 		Name: "  Aurora Mug  ", Slug: "aurora-mug", Description: "  Ceramic  ",
-		SKUs: []CreateSKUInput{{Code: " MUG-WHITE ", PriceCents: 1299, Currency: " USD "}},
+		SKUs: []CreateSKUInput{{Code: " MUG-WHITE ", PriceMinor: 129900, Currency: " VND "}},
 	})
 	if err != nil {
 		t.Fatalf("CreateProduct() error = %v", err)
@@ -48,13 +54,13 @@ func TestCreateProductNormalizesAndDelegates(t *testing.T) {
 func TestCreateProductRejectsInvalidFields(t *testing.T) {
 	service := NewService(&stubRepository{})
 	_, err := service.CreateProduct(context.Background(), CreateProductInput{
-		Name: "", Slug: "Not Valid", SKUs: []CreateSKUInput{{Code: "bad code", PriceCents: -1, Currency: "usd"}},
+		Name: "", Slug: "Not Valid", SKUs: []CreateSKUInput{{Code: "bad code", PriceMinor: -1, Currency: "usd"}},
 	})
 	var validationErr *ValidationError
 	if !errors.As(err, &validationErr) {
 		t.Fatalf("CreateProduct() error = %v, want ValidationError", err)
 	}
-	for _, field := range []string{"name", "slug", "skus[0].code", "skus[0].price_cents", "skus[0].currency"} {
+	for _, field := range []string{"name", "slug", "skus[0].code", "skus[0].price_minor", "skus[0].currency"} {
 		if _, exists := validationErr.Fields[field]; !exists {
 			t.Errorf("missing validation error for %s", field)
 		}
@@ -65,8 +71,8 @@ func TestCreateProductRejectsDuplicateSKUCodes(t *testing.T) {
 	service := NewService(&stubRepository{})
 	_, err := service.CreateProduct(context.Background(), CreateProductInput{
 		Name: "Mug", Slug: "mug", SKUs: []CreateSKUInput{
-			{Code: "MUG", PriceCents: 100, Currency: "USD"},
-			{Code: "MUG", PriceCents: 200, Currency: "USD"},
+			{Code: "MUG", PriceMinor: 100000, Currency: "VND"},
+			{Code: "MUG", PriceMinor: 200000, Currency: "VND"},
 		},
 	})
 	var validationErr *ValidationError

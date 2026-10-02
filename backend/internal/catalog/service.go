@@ -5,12 +5,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 var (
-	slugPattern     = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	skuPattern      = regexp.MustCompile(`^[A-Z0-9][A-Z0-9._-]*$`)
-	currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`)
+	slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	skuPattern  = regexp.MustCompile(`^[A-Z0-9][A-Z0-9._-]*$`)
 )
 
 type Service struct {
@@ -51,6 +52,10 @@ func (s *Service) GetProduct(ctx context.Context, slug string) (Product, error) 
 	return s.repository.GetBySlug(ctx, slug)
 }
 
+func (s *Service) GetSKUs(ctx context.Context, ids []uuid.UUID) ([]SKUDetails, error) {
+	return s.repository.GetSKUs(ctx, ids)
+}
+
 func normalizeInput(input *CreateProductInput) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Slug = strings.TrimSpace(input.Slug)
@@ -85,11 +90,11 @@ func validateCreateInput(input CreateProductInput) error {
 			fields[prefix+".code"] = "must be unique within the product"
 		}
 		seenCodes[sku.Code] = struct{}{}
-		if sku.PriceCents < 0 {
-			fields[prefix+".price_cents"] = "must be non-negative"
+		if sku.PriceMinor < 0 || sku.PriceMinor > 900000000000 {
+			fields[prefix+".price_minor"] = "must be between 0 and 900000000000"
 		}
-		if !currencyPattern.MatchString(sku.Currency) {
-			fields[prefix+".currency"] = "must be a three-letter uppercase ISO 4217 code"
+		if sku.Currency != "VND" {
+			fields[prefix+".currency"] = "must be VND"
 		}
 	}
 	if len(fields) > 0 {

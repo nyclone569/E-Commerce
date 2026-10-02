@@ -16,6 +16,7 @@ type Repository interface {
 	Create(context.Context, CreateProductInput) (Product, error)
 	GetBySlug(context.Context, string) (Product, error)
 	List(context.Context, int32, int32) (Page, error)
+	GetSKUs(context.Context, []uuid.UUID) ([]SKUDetails, error)
 }
 
 type PostgresRepository struct {
@@ -46,7 +47,7 @@ func (r *PostgresRepository) Create(ctx context.Context, input CreateProductInpu
 	for _, skuInput := range input.SKUs {
 		skuRow, createErr := queries.CreateSKU(ctx, db.CreateSKUParams{
 			ID: uuid.New(), ProductID: row.ID, Code: skuInput.Code,
-			PriceCents: skuInput.PriceCents, Currency: skuInput.Currency,
+			PriceMinor: skuInput.PriceMinor, Currency: skuInput.Currency,
 		})
 		if createErr != nil {
 			return Product{}, mapWriteError(createErr)
@@ -119,6 +120,25 @@ func (r *PostgresRepository) GetBySlug(ctx context.Context, slug string) (Produc
 	return product, nil
 }
 
+func (r *PostgresRepository) GetSKUs(ctx context.Context, ids []uuid.UUID) ([]SKUDetails, error) {
+	if len(ids) == 0 {
+		return []SKUDetails{}, nil
+	}
+	rows, err := db.New(r.pool).ListSKUDetailsByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("list catalog SKU details: %w", err)
+	}
+	details := make([]SKUDetails, 0, len(rows))
+	for _, row := range rows {
+		details = append(details, SKUDetails{
+			ID: row.ID, ProductID: row.ProductID, ProductName: row.ProductName,
+			ProductSlug: row.ProductSlug, Code: row.Code, PriceMinor: row.PriceMinor,
+			Currency: row.Currency,
+		})
+	}
+	return details, nil
+}
+
 func productFromDB(row db.Product) Product {
 	return Product{
 		ID: row.ID, Name: row.Name, Slug: row.Slug, Description: row.Description,
@@ -128,7 +148,7 @@ func productFromDB(row db.Product) Product {
 
 func skuFromDB(row db.Sku) SKU {
 	return SKU{
-		ID: row.ID, ProductID: row.ProductID, Code: row.Code, PriceCents: row.PriceCents,
+		ID: row.ID, ProductID: row.ProductID, Code: row.Code, PriceMinor: row.PriceMinor,
 		Currency: row.Currency, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	}
 }

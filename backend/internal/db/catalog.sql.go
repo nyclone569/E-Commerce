@@ -55,16 +55,16 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 }
 
 const createSKU = `-- name: CreateSKU :one
-INSERT INTO skus (id, product_id, code, price_cents, currency)
+INSERT INTO skus (id, product_id, code, price_minor, currency)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, product_id, code, price_cents, currency, created_at, updated_at
+RETURNING id, product_id, code, price_minor, currency, created_at, updated_at
 `
 
 type CreateSKUParams struct {
 	ID         uuid.UUID `json:"id"`
 	ProductID  uuid.UUID `json:"product_id"`
 	Code       string    `json:"code"`
-	PriceCents int64     `json:"price_cents"`
+	PriceMinor int64     `json:"price_minor"`
 	Currency   string    `json:"currency"`
 }
 
@@ -73,7 +73,7 @@ func (q *Queries) CreateSKU(ctx context.Context, arg CreateSKUParams) (Sku, erro
 		arg.ID,
 		arg.ProductID,
 		arg.Code,
-		arg.PriceCents,
+		arg.PriceMinor,
 		arg.Currency,
 	)
 	var i Sku
@@ -81,7 +81,7 @@ func (q *Queries) CreateSKU(ctx context.Context, arg CreateSKUParams) (Sku, erro
 		&i.ID,
 		&i.ProductID,
 		&i.Code,
-		&i.PriceCents,
+		&i.PriceMinor,
 		&i.Currency,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -148,8 +148,54 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 	return items, nil
 }
 
+const listSKUDetailsByIDs = `-- name: ListSKUDetailsByIDs :many
+SELECT s.id, s.product_id, p.name AS product_name, p.slug AS product_slug,
+       s.code, s.price_minor, s.currency
+FROM skus AS s
+JOIN products AS p ON p.id = s.product_id
+WHERE s.id = ANY($1::uuid[])
+`
+
+type ListSKUDetailsByIDsRow struct {
+	ID          uuid.UUID `json:"id"`
+	ProductID   uuid.UUID `json:"product_id"`
+	ProductName string    `json:"product_name"`
+	ProductSlug string    `json:"product_slug"`
+	Code        string    `json:"code"`
+	PriceMinor  int64     `json:"price_minor"`
+	Currency    string    `json:"currency"`
+}
+
+func (q *Queries) ListSKUDetailsByIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]ListSKUDetailsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, listSKUDetailsByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSKUDetailsByIDsRow{}
+	for rows.Next() {
+		var i ListSKUDetailsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.ProductName,
+			&i.ProductSlug,
+			&i.Code,
+			&i.PriceMinor,
+			&i.Currency,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSKUsByProductIDs = `-- name: ListSKUsByProductIDs :many
-SELECT id, product_id, code, price_cents, currency, created_at, updated_at
+SELECT id, product_id, code, price_minor, currency, created_at, updated_at
 FROM skus
 WHERE product_id = ANY($1::uuid[])
 ORDER BY product_id, code ASC
@@ -168,7 +214,7 @@ func (q *Queries) ListSKUsByProductIDs(ctx context.Context, dollar_1 []uuid.UUID
 			&i.ID,
 			&i.ProductID,
 			&i.Code,
-			&i.PriceCents,
+			&i.PriceMinor,
 			&i.Currency,
 			&i.CreatedAt,
 			&i.UpdatedAt,

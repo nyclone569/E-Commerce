@@ -15,7 +15,7 @@ Browser
                           -> PostgreSQL
 ```
 
-The `catalog` and `identity` packages have behavior. The empty `cart`, `inventory`, `order`, and `payment` packages mark planned ownership; empty packages are not services and are not deployed independently.
+The `catalog`, `identity`, and `cart` packages have behavior. The empty `inventory`, `order`, and `payment` packages mark planned ownership; empty packages are not services and are not deployed independently.
 
 ## Functional map
 
@@ -73,6 +73,10 @@ Browser cookie (raw opaque token)
 
 Go owns credential validation, Argon2id password hashing, session generation, expiry, revocation, and authentication context. Next.js only renders forms/current-user state and forwards same-origin API traffic. PostgreSQL stores Argon2id records and session-token digests, never raw passwords or raw session tokens. The session uses a configurable fixed absolute TTL, initially 24 hours.
 
+## Milestone 2 Cart flow
+
+`GET /cart` is server-rendered by Next.js. It forwards the session cookie to `GET /api/cart`; Go authenticates the cookie before invoking Cart. Cart's handler takes the user ID only from Identity's request context. The Cart service loads SKU IDs and quantities through its repository and calls the public Catalog service for current VND product details and prices. No cart row is created by GET. On first add, a PostgreSQL transaction creates one active cart and atomically upserts the SKU quantity. Mutations require authentication, an exact Origin, and a session-bound CSRF header. See [Feature 003](features/003-authenticated-cart.md) and [ADR-0010](adr/0010-authenticated-cart.md).
+
 ## Module rules
 
 1. Handlers translate HTTP concerns and never contain business rules.
@@ -101,15 +105,23 @@ Go owns credential validation, Argon2id password hashing, session generation, ex
 
 ## Data ownership
 
-Milestone 1 tables are logically catalog-owned:
+Current tables have one logical owner per module:
 
 ```text
 catalog
   products (unique slug)
   skus (unique code, product FK, non-negative price)
+
+identity
+  users (unique normalized email)
+  sessions (hashed token, expiry, revocation)
+
+cart
+  carts (one active cart per user)
+  cart_items (SKU reference, bounded quantity)
 ```
 
-PostgreSQL constraints are a final correctness boundary; application validation exists to produce useful errors. Money is stored as integer minor units plus a three-letter currency code, avoiding binary floating-point errors. This model does not yet support currencies with unusual minor-unit rules; revisit before international checkout.
+PostgreSQL constraints are a final correctness boundary; application validation exists to produce useful errors. New products use VND integer minor units (one unit is one đồng). Existing non-VND demo SKUs remain readable after migration but cannot enter the Cart. Cart stores only SKU IDs and quantities, not prices; checkout must later reprice and validate inventory. The maximum new SKU price and Cart limits keep JSON numbers in JavaScript's safe integer range.
 
 ## Security and data handling baseline
 

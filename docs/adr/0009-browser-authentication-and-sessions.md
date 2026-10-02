@@ -39,7 +39,7 @@ Hash passwords with Argon2id using a unique random salt and an encoded record co
 
 Expose the browser API under the same public origin. Locally, a Next.js route handler proxies `/api/*` to Go; later, an ingress routes `/api/*` directly to Go and all other paths to Next.js. Go remains the authentication authority.
 
-Protect the initial state-changing authentication endpoints with `SameSite=Lax` and exact `Origin` validation. Add a synchronizer CSRF token before authenticated commerce mutations such as checkout. Production cookies use `Secure`; local HTTP explicitly disables it.
+Protect the initial state-changing authentication endpoints with `SameSite=Lax` and exact `Origin` validation. The Cart slice adds a session-bound HMAC CSRF token, fetched through an authenticated, non-cacheable endpoint, for authenticated Cart mutations. Checkout must use the same or stronger protection. Production cookies use `Secure`; local HTTP explicitly disables it.
 
 ## Detailed reasoning
 

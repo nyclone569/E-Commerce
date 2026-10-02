@@ -2,7 +2,7 @@ export type SKU = {
   id: string;
   product_id: string;
   code: string;
-  price_cents: number;
+  price_minor: number;
   currency: string;
 };
 
@@ -58,9 +58,9 @@ export async function getProduct(slug: string): Promise<Product> {
   return response.json() as Promise<Product>;
 }
 
-export function formatMoney(priceCents: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", {
+export function formatMoney(priceMinor: number, currency: string): string {
+  return new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", {
     style: "currency",
     currency,
-  }).format(priceCents / 100);
+  }).format(currency === "VND" ? priceMinor : priceMinor / 100);
 }

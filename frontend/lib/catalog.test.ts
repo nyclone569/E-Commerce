@@ -8,6 +8,7 @@ afterEach(() => {
 describe("formatMoney", () => {
   it("formats integer minor units as currency", () => {
     expect(formatMoney(1299, "USD")).toBe("$12.99");
+    expect(formatMoney(249000, "VND")).toContain("249.000");
   });
 });
 

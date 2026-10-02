@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CatalogNotFoundError, formatMoney, getProduct, type Product } from "@/lib/catalog";
+import { AddToCartButton } from "./add-to-cart-button";
 
 type ProductDetailsProps = {
   params: Promise<{ slug: string }>;
@@ -41,14 +42,17 @@ export default async function ProductDetails({ params }: ProductDetailsProps) {
                     <p className="font-bold text-emerald-950">{sku.code}</p>
                     <p className="mt-1 text-xs uppercase tracking-widest text-emerald-950/45">SKU option</p>
                   </div>
-                  <p className="text-xl font-black text-emerald-800">{formatMoney(sku.price_cents, sku.currency)}</p>
+                  <div className="text-right">
+                    <p className="text-xl font-black text-emerald-800">{formatMoney(sku.price_minor, sku.currency)}</p>
+                    {sku.currency === "VND" && <AddToCartButton skuID={sku.id} />}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
           <aside className="mt-8 rounded-2xl bg-emerald-950 px-5 py-4 text-sm leading-6 text-emerald-50/80">
-            SKU selection and Add to Cart arrive in the Cart function. This page does not claim inventory availability yet.
+            Cart quantities are estimates at current catalog prices. Stock and final price are checked during checkout in a later milestone.
           </aside>
         </section>
       </div>

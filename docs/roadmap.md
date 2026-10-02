@@ -14,7 +14,7 @@
 
 Implement identity, cart, inventory, order, and internal mock payment. Write module ownership contracts first. Design one-database transaction boundaries for cart-to-order and inventory deduction. Never call a slow payment adapter while holding a database transaction. Add authentication and authorization threat review.
 
-Implementation order is feature-first: Identity register/login/session, Cart, Inventory, Order checkout, Mock Payment, then Order History. The Identity register/login/session slice is implemented; this does not mark Milestone 2 complete.
+Implementation order is feature-first: Identity register/login/session, Cart, Inventory, Order checkout, Mock Payment, then Order History. Identity and authenticated VND Cart are implemented; Inventory, Order checkout, Mock Payment, and Order History remain. Milestone 2 is not complete.
 
 Exit criteria: happy-path commerce flows, explicit state transitions, module dependency tests, integration tests, and no cross-module table mutation.
 

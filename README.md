@@ -1,6 +1,6 @@
 # AuroraShop
 
-AuroraShop is a self-learning ecommerce system that starts as a Go modular monolith and evolves only when measurements justify more infrastructure. Milestone 1 implements the catalog foundation; the first Milestone 2 vertical slice adds register, login, current-user, and logout behavior. Kafka is intentionally absent from the running stack.
+AuroraShop is a self-learning ecommerce system that starts as a Go modular monolith and evolves only when measurements justify more infrastructure. Milestone 1 implements the catalog foundation; Milestone 2 currently includes identity and an authenticated VND cart. Kafka is intentionally absent from the running stack.
 
 ## Current architecture
 
@@ -8,9 +8,11 @@ AuroraShop is a self-learning ecommerce system that starts as a Go modular monol
 Browser -> Next.js App Router (deployable) -> Go net/http + Chi (modular monolith) -> PostgreSQL
               local /api proxy                 catalog  -> service -> repository -> sqlc/pgx
                                                 identity -> service -> repository -> sqlc/pgx
+                                                cart     -> service -> repository -> sqlc/pgx
+                                                            └-> catalog service for current SKU details
 ```
 
-The Go process contains identity, catalog, cart, inventory, order, and payment domain packages. Catalog and Identity are implemented; the remaining packages are planned module boundaries, not separately deployed services. All modules use one PostgreSQL database in version 1, with logical table ownership and explicit service boundaries.
+The Go process contains identity, catalog, cart, inventory, order, and payment domain packages. Catalog, Identity, and Cart are implemented; the remaining packages are planned module boundaries, not separately deployed services. All modules use one PostgreSQL database in version 1, with logical table ownership and explicit service boundaries.
 
 Read [architecture.md](docs/architecture.md), the [roadmap](docs/roadmap.md), and the [ADRs](docs/adr/) before adding infrastructure.
 
@@ -54,7 +56,7 @@ curl --fail-with-body \
     "slug": "aurora-camp-mug",
     "description": "A durable mug for slow mornings.",
     "skus": [
-      {"code": "MUG-MOSS-12OZ", "price_cents": 2499, "currency": "USD"}
+      {"code": "MUG-MOSS-12OZ", "price_minor": 249000, "currency": "VND"}
     ]
   }'
 ```
@@ -102,6 +104,24 @@ curl --fail-with-body \
 
 The browser stores the raw opaque token in an `HttpOnly` cookie; PostgreSQL stores only its SHA-256 digest. Sessions have a fixed configurable 24-hour lifetime. Read [Feature 002](docs/features/002-register-and-login.md) and [ADR-0009](docs/adr/0009-browser-authentication-and-sessions.md) for the password, session, JWT, CSRF, and routing trade-offs.
 
+## Use the cart
+
+Start the stack, create a VND product, then register/sign in at <http://localhost:3000/register>. Open the product page, choose **Add to cart**, and visit <http://localhost:3000/cart>. The cart shows current catalog prices; it does not reserve stock or offer checkout yet. A signed-out visit redirects to login.
+
+To inspect the API manually, use the cookie jar from the registration example before logging out. Replace `SKU_UUID` with an ID returned by `GET /api/products`:
+
+```bash
+curl --fail-with-body -b "$cookie_jar" http://localhost:3000/api/cart
+csrf_token="$(curl --fail-with-body -b "$cookie_jar" http://localhost:3000/api/auth/csrf | jq -r .csrf_token)"
+curl --fail-with-body -b "$cookie_jar" -X POST http://localhost:3000/api/cart/items \
+  -H 'Origin: http://localhost:3000' -H "X-CSRF-Token: $csrf_token" \
+  -H 'Content-Type: application/json' \
+  --data '{"sku_id":"SKU_UUID","quantity":1}'
+curl --fail-with-body -b "$cookie_jar" http://localhost:3000/api/cart
+```
+
+`jq` is needed only for the manual CSRF example. Do not print or paste the cookie or token into logs/issues. Read [Feature 003](docs/features/003-authenticated-cart.md) and [ADR-0010](docs/adr/0010-authenticated-cart.md).
+
 Error responses share one envelope:
 
 ```json
@@ -133,8 +153,8 @@ BACKEND_URL=http://localhost:8080 npx --yes pnpm@11.23.0 --dir frontend dev
 
 ## Database and generated code
 
-- Migrations: `backend/db/migrations/00001_create_catalog.sql` and `00002_create_identity.sql`
-- Human-authored queries: `backend/db/queries/catalog.sql` and `identity.sql`
+- Migrations: `backend/db/migrations/00001` through `00004` (Catalog, Identity, VND pricing, Cart)
+- Human-authored queries: `backend/db/queries/catalog.sql`, `identity.sql`, and `cart.sql`
 - Generated Go: `backend/internal/db/`
 - Generator config: `backend/sqlc.yaml`
 
@@ -154,7 +174,7 @@ make backend-integration
 make frontend-check
 ```
 
-`backend-integration` uses Testcontainers and requires a healthy Docker provider. It starts isolated PostgreSQL 17 containers, runs the real Goose migrations, and exercises catalog behavior plus Identity transaction rollback, password representation, session expiry, and revocation.
+`backend-integration` uses Testcontainers and requires a healthy Docker provider. It starts isolated PostgreSQL 17 containers, runs the real Goose migrations, and exercises Catalog, Identity, Cart ownership, and concurrent Cart updates.
 
 ## Configuration
 
@@ -198,6 +218,7 @@ backend/cmd/api/          Go API entry point
 backend/cmd/worker/       Reserved for the Milestone 5 outbox publisher
 backend/internal/catalog/ Catalog handler/service/repository/domain model
 backend/internal/identity/Identity password/session/handler/service/repository behavior
+backend/internal/cart/    Authenticated cart handler/service/repository/domain model
 backend/internal/platform/Configuration, database, HTTP, logging
 backend/db/               Goose migrations and sqlc queries
 backend/tests/integration/PostgreSQL Testcontainers tests
